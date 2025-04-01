@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-
 type Nonterminal string
 type CustomString string
 
@@ -132,7 +131,7 @@ func newGrammarFromFile(filepath string) Grammar {
 
 			for {
 				for i < len(nonterminalLocs) && offset == nonterminalLocs[i].loc {
-					word = append(word, Nonterminal(str[offset:offset + nonterminalLocs[i].length]))
+					word = append(word, Nonterminal(str[offset:offset+nonterminalLocs[i].length]))
 					offset += nonterminalLocs[i].length
 					i++
 				}
