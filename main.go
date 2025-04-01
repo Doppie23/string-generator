@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-const fileName = "test.txt"
 
 type Identifier string
 type CustomString string
@@ -137,6 +136,12 @@ func newGrammarFromFile(filepath string) Grammar {
 			}
 
 			for {
+				for i < len(identLocs) && offset == identLocs[i].loc {
+					word = append(word, Identifier(tw[offset:offset + identLocs[i].length]))
+					offset += identLocs[i].length
+					i++
+				}
+
 				if offset < len(tw) {
 					var to int
 					if i < len(identLocs) {
@@ -144,16 +149,11 @@ func newGrammarFromFile(filepath string) Grammar {
 					} else {
 						to = len(tw)
 					}
+
 					word = append(word, CustomString(tw[offset:to]))
 					offset = to
 				} else {
 					break
-				}
-
-				if i < len(identLocs) {
-					word = append(word, Identifier(tw[offset:offset + identLocs[i].length]))
-					offset += identLocs[i].length
-					i++
 				}
 			}
 
@@ -165,6 +165,16 @@ func newGrammarFromFile(filepath string) Grammar {
 }
 
 func main() {
-	g := newGrammarFromFile(fileName)
+	var filename string
+	args := os.Args
+	if len(args) < 2 {
+		fmt.Printf("Usage: %s input.txt\n", args[0])
+		os.Exit(0)
+	} else {
+		filename = args[1]
+	}
+
+	g := newGrammarFromFile(filename)
+	// fmt.Println(g)
 	fmt.Println(g.GenerateRandomString("S"))
 }
