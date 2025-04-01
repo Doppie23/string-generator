@@ -10,27 +10,27 @@ import (
 )
 
 
-type Identifier string
+type Nonterminal string
 type CustomString string
 
 type Value interface{}
 
 type Word []Value
 
-type Grammar map[Identifier][]Word
+type Grammar map[Nonterminal][]Word
 
-func (g Grammar) GenerateRandomString(i Identifier) string {
+func (g Grammar) GenerateRandomString(i Nonterminal) string {
 	ws, ok := g[i]
 	if !ok {
 		log.Fatalf("Missing symbol '%s' in grammar\n", i)
 	}
 
-	vs := ws[rand.Intn(len(ws))]
+	w := ws[rand.Intn(len(ws))]
 
 	r := ""
-	for _, v := range vs {
+	for _, v := range w {
 		switch v := v.(type) {
-		case Identifier:
+		case Nonterminal:
 			r += g.GenerateRandomString(v)
 		case CustomString:
 			r += string(v)
@@ -40,7 +40,7 @@ func (g Grammar) GenerateRandomString(i Identifier) string {
 	return r
 }
 
-type IdentLoc struct {
+type NonterminalLoc struct {
 	loc    int
 	length int
 }
@@ -69,95 +69,90 @@ func newGrammarFromFile(filepath string) Grammar {
 	content := string(data)
 	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
 
-	t := make(map[string][]string)
+	t := make(map[Nonterminal][]string)
 
 	for _, line := range lines {
 		ps := strings.Split(line, "->")
 		if len(ps) != 2 {
 			log.Fatalln("Invalid grammar file, a line should be in the following format:\nS -> string")
 		}
-		ident := strings.TrimSpace(ps[0])
+		nonterminal := Nonterminal(strings.TrimSpace(ps[0]))
 		vs := strings.Split(ps[1], "|")
 		for i, v := range vs {
 			vs[i] = strings.TrimSpace(v)
 		}
 
-		if v, ok := t[ident]; ok {
-			t[ident] = append(v, vs...)
+		if v, ok := t[nonterminal]; ok {
+			t[nonterminal] = append(v, vs...)
 		} else {
-			t[ident] = vs
+			t[nonterminal] = vs
 		}
 	}
 
-	idents := make([]string, len(t))
+	nonterminals := make([]Nonterminal, len(t))
 
 	i := 0
 	for k := range t {
-		idents[i] = k
+		nonterminals[i] = Nonterminal(k)
 		i++
 	}
 
 	g := make(Grammar)
 
-	for _, ident := range idents {
-		v := t[ident]
-		key := Identifier(ident)
-		g[key] = make([]Word, 0)
-		for _, tw := range v {
-			identLocs := make([]IdentLoc, 0)
+	for _, nonterminal := range nonterminals {
+		strs := t[nonterminal]
+		g[nonterminal] = make([]Word, 0)
+		for _, str := range strs {
+			nonterminalLocs := make([]NonterminalLoc, 0)
 
-			for _, id := range idents {
-				locs := indexAll(tw, id)
+			for _, otherNonterminal := range nonterminals {
+				strOtherNonterminal := string(otherNonterminal)
+				locs := indexAll(str, strOtherNonterminal)
 				if len(locs) == 0 {
 					continue
 				}
 				for _, loc := range locs {
-					identLocs = append(identLocs, IdentLoc{loc, len(id)})
+					nonterminalLocs = append(nonterminalLocs, NonterminalLoc{loc, len(strOtherNonterminal)})
 				}
 			}
 
-			if len(identLocs) == 0 {
-				g[key] = append(g[key], Word{CustomString(tw)})
+			if len(nonterminalLocs) == 0 {
+				g[nonterminal] = append(g[nonterminal], Word{CustomString(str)})
 				continue
 			}
 
-			sort.Slice(identLocs, func(i int, j int) bool {
-				return identLocs[i].loc <= identLocs[j].loc
+			sort.Slice(nonterminalLocs, func(i int, j int) bool {
+				return nonterminalLocs[i].loc <= nonterminalLocs[j].loc
 			})
 
 			word := make(Word, 0)
 
 			offset := 0
 			i := 0
-			if identLocs[i].loc == 0 {
-				word = append(word, Identifier(tw[0:identLocs[i].length]))
-				offset = identLocs[i].length
-				i++
-			}
 
 			for {
-				for i < len(identLocs) && offset == identLocs[i].loc {
-					word = append(word, Identifier(tw[offset:offset + identLocs[i].length]))
-					offset += identLocs[i].length
+				for i < len(nonterminalLocs) && offset == nonterminalLocs[i].loc {
+					word = append(word, Nonterminal(str[offset:offset + nonterminalLocs[i].length]))
+					offset += nonterminalLocs[i].length
 					i++
 				}
 
-				if offset < len(tw) {
+				if offset < len(str) {
 					var to int
-					if i < len(identLocs) {
-						to = identLocs[i].loc
+					if i < len(nonterminalLocs) {
+						to = nonterminalLocs[i].loc
 					} else {
-						to = len(tw)
+						to = len(str)
 					}
 
-					word = append(word, CustomString(tw[offset:to]))
+					word = append(word, CustomString(str[offset:to]))
 					offset = to
 				} else {
 					break
 				}
 			}
 
-			g[key] = append(g[key], word)
+			g[nonterminal] = append(g[nonterminal], word)
 		}
 	}
 
@@ -175,6 +170,5 @@ func main() {
 	}
 
 	g := newGrammarFromFile(filename)
-	// fmt.Println(g)
 	fmt.Println(g.GenerateRandomString("S"))
 }
