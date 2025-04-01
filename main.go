@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const fileName = "test.gram"
+const fileName = "test.txt"
 
 type Identifier string
 type CustomString string
@@ -72,19 +72,21 @@ func newGrammarFromFile(filepath string) Grammar {
 
 	t := make(map[string][]string)
 
-	// TODO: support `|` syntax
 	for _, line := range lines {
 		ps := strings.Split(line, "->")
 		if len(ps) != 2 {
-			log.Fatalln("Invalid grammar file") // TODO: better error message...
+			log.Fatalln("Invalid grammar file, a line should be in the following format:\nS -> string")
 		}
 		ident := strings.TrimSpace(ps[0])
-		rest := strings.TrimSpace(ps[1])
+		vs := strings.Split(ps[1], "|")
+		for i, v := range vs {
+			vs[i] = strings.TrimSpace(v)
+		}
 
 		if v, ok := t[ident]; ok {
-			t[ident] = append(v, rest)
+			t[ident] = append(v, vs...)
 		} else {
-			t[ident] = []string{rest}
+			t[ident] = vs
 		}
 	}
 
@@ -110,7 +112,7 @@ func newGrammarFromFile(filepath string) Grammar {
 				if len(locs) == 0 {
 					continue
 				}
-				for loc := range locs {
+				for _, loc := range locs {
 					identLocs = append(identLocs, IdentLoc{loc, len(id)})
 				}
 			}
@@ -126,10 +128,34 @@ func newGrammarFromFile(filepath string) Grammar {
 
 			word := make(Word, 0)
 
-			// if first indent loc is 0, we first need to get that
-			//
-			// than we look for the next word and get it if its there and look if there is another ident, if so grab it aswell
-			// repeat
+			offset := 0
+			i := 0
+			if identLocs[i].loc == 0 {
+				word = append(word, Identifier(tw[0:identLocs[i].length]))
+				offset = identLocs[i].length
+				i++
+			}
+
+			for {
+				if offset < len(tw) {
+					var to int
+					if i < len(identLocs) {
+						to = identLocs[i].loc
+					} else {
+						to = len(tw)
+					}
+					word = append(word, CustomString(tw[offset:to]))
+					offset = to
+				} else {
+					break
+				}
+
+				if i < len(identLocs) {
+					word = append(word, Identifier(tw[offset:offset + identLocs[i].length]))
+					offset += identLocs[i].length
+					i++
+				}
+			}
 
 			g[key] = append(g[key], word)
 		}
@@ -139,12 +165,6 @@ func newGrammarFromFile(filepath string) Grammar {
 }
 
 func main() {
-	// g := make(Grammar)
-
-	// g[Identifier("S")] = []Word{[]Value{CustomString("test")}, []Value{Identifier("S"), Identifier("S")}}
-	// fmt.Println(g.GenerateRandomString("S"))
-
 	g := newGrammarFromFile(fileName)
-	fmt.Print(g)
-
+	fmt.Println(g.GenerateRandomString("S"))
 }
